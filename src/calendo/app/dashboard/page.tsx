@@ -1,30 +1,16 @@
-// app/dashboard/page.tsx
+// app/dashboard/page.tsx (Server Component version)
 
-"use client"; // Required for using React hooks like `useSession`
+import ClientDashboard from "@/app/components/ClientDashboard";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 
-import { getUserSession } from '@/lib/session';
-
-export default function Dashboard() {
-  const { data: session, status } = useSession();
-
-  if (status === "loading") {
-    return <p>Loading...</p>;
-  }
+export default async function DashboardPage() {
+  const session = await getServerSession(authOptions);
 
   if (!session) {
-    return (
-      <div>
-        <p>You must be signed in to view the dashboard.</p>
-        <a href="/api/auth/signin">Sign in</a>
-      </div>
-    );
+    // You might want to redirect or show an error message
+    return <p>Access Denied. Please sign in.</p>;
   }
 
-  return (
-    <div>
-      <h1>Welcome to your Dashboard, {session.user?.name}!</h1>
-      <p>Email: {session.user?.email}</p>
-      <img src={session.user?.image || ""} alt="Profile" />
-    </div>
-  );
+  return <ClientDashboard initialSession={session} />;
 }
