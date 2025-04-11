@@ -16,8 +16,25 @@ export default function ClientDashboard({ initialSession }: { initialSession: an
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     console.log("Submitting event:", textInput);
-    // Later integrate with Google Calendar API here.
-    setTextInput("");
+    if (!textInput) return;
+  
+    const response = await fetch("/api/parseEvent", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ text: textInput }),
+    });
+
+    if (!response.ok) {
+      // Handle the error
+      console.error("API error:", response.statusText);
+      return;
+    }
+  
+    const parsedData = await response.json();
+    console.log("Parsed event:", parsedData); // Check AI response in console
+  
+    // Later, send this data to Google Calendar API
+    setTextInput(""); 
   };
 
   return (
