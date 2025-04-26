@@ -6,28 +6,60 @@ const openai = new OpenAI({
   apiKey: process.env.OPENAI_API_KEY, // Use an environment variable
 });
 
-// Define the handler function for POST request
 export async function POST(req: NextRequest) {
   try {
     const { text } = await req.json();  // Extract text from request body
-    
-    // Log to ensure the function is being triggered
+
+    // Get today's date in YYYY-MM-DD format
+    const today = new Date().toISOString().split("T")[0]; // e.g., "2025-04-26"
+
     console.log("HELLO HELLO HELLO");
 
     const response = await openai.chat.completions.create({
-      model: "gpt-3.5-turbo",  // 
+      model: "gpt-3.5-turbo",
       messages: [
-        { role: "system", content: "You are an AI that extracts structured event details from natural language. Return only a JSON object with the keys \"summary\", \"start\", \"end\", and \"reminders\". Do not include any extra text." },
-        { role: "user", content: `Extract details from this event: "${text}"` },
-      ]
+        {
+          role: "system",
+          content: `
+You are an AI that extracts structured calendar event data from natural language.
+Today's date is ${today}.
+If the input says "tomorrow", "next Friday", etc., resolve it into an exact date based on today.
 
+Return ONLY a JSON object with these keys:
+- "summary" (string): a short title for the event
+- "start" (ISO 8601 string, including date, time, and **timezone offset** like -07:00 for Pacific Time): when the event starts
+- "end" (ISO 8601 string, same format as start): when the event ends
+- "reminders" (array): list of { "method": "popup", "minutes": number }
+
+If the user doesn't specify an end time, default the event to 1 hour after the start time.
+
+IMPORTANT:
+- Include the correct timezone offset (-07:00 for Pacific Time) in the start and end times.
+- Only return a JSON object, no explanation or extra text.
+- Do not create recurring events, even if the user asks.
+
+Only return valid, parsable JSON.
+          `.trim()
+        },
+        {
+          role: "user",
+          content: `Extract details from this event: "${text}"`
+        }
+      ]
     });
+
     const rawOutput = response.choices[0].message.content;
     console.log("Raw output:", rawOutput);
 
-    const eventData = JSON.parse(response.choices[0].message.content); // Parsed event details
-    return NextResponse.json(eventData);  // Send the parsed event data as JSON
-
+    if (rawOutput) {
+      const eventData = JSON.parse(rawOutput);
+      return NextResponse.json(eventData);
+    } else {
+      return NextResponse.json(
+        { error: "No content returned from OpenAI" },
+        { status: 500 }
+      );
+    }
   } catch (error) {
     console.error(error);
     return NextResponse.json({ error: "Failed to parse event" }, { status: 500 });

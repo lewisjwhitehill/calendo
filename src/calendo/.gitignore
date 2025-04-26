@@ -10,6 +10,9 @@
 !.yarn/releases
 !.yarn/versions
 
+# Ignore macOS system files
+.DS_Store
+
 # testing
 /coverage
 

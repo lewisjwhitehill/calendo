@@ -13,11 +13,28 @@ export default function ClientDashboard({ initialSession }: { initialSession: an
     setTextInput(e.target.value);
   };
 
+  const createCalendarEvent = async (parsedData: any) => {
+    const res = await fetch("/api/calendar/create", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(parsedData),
+    });
+
+    const result = await res.json();
+    if (res.ok) {
+      console.log("Event created! Link:", result.eventLink);
+      alert(`Event created! View it here: ${result.eventLink}`);
+    } else {
+      console.error("Error creating event:", result.error);
+      alert("Failed to create event.");
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     console.log("Submitting event:", textInput);
     if (!textInput) return;
-  
+
     const response = await fetch("/api/parseEvent", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -25,16 +42,17 @@ export default function ClientDashboard({ initialSession }: { initialSession: an
     });
 
     if (!response.ok) {
-      // Handle the error
       console.error("API error:", response.statusText);
       return;
     }
-  
+
     const parsedData = await response.json();
-    console.log("Parsed event:", parsedData); // Check AI response in console
-  
-    // Later, send this data to Google Calendar API
-    setTextInput(""); 
+    console.log("Parsed event:", parsedData);
+
+    // Now send to Google Calendar
+    await createCalendarEvent(parsedData);
+
+    setTextInput("");
   };
 
   return (
