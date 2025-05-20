@@ -56,21 +56,23 @@ export default function ClientDashboard({ initialSession }: { initialSession: an
   };
 
   return (
-    <div className="p-4">
-      <h1>Welcome, {session.user?.name}!</h1>
+    <div className="flex flex-col items-center justify-start min-h-screen p-8 pt-64 pb-20 gap-8 sm:p-20 font-[family-name:var(--font-geist-sans)]">
+      <h1 className="text-4xl font-bold">Welcome, {session.user?.name}!</h1>
       <p>Type something below to create a calendar event:</p>
-      <form onSubmit={handleSubmit}>
-        <input
-          type="text"
-          value={textInput}
-          onChange={handleInputChange}
-          placeholder="Describe your event"
-          className="border rounded px-2 py-1"
-        />
-        <button type="submit" className="ml-2 px-4 py-1 bg-blue-500 text-white rounded">
-          Create Event
-        </button>
-      </form>
+      <div className="mt-12 w-full max-w-md">
+        <form onSubmit={handleSubmit} className="flex flex-col items-center gap-4">
+          <input
+            type="text"
+            value={textInput}
+            onChange={handleInputChange}
+            placeholder="Describe your event"
+            className="border rounded px-4 py-2 w-full"
+          />
+          <button type="submit" className="px-4 py-2 bg-orange-500 text-white rounded w-full">
+            Create Event
+          </button>
+        </form>
+      </div>
     </div>
   );
 }
