@@ -29,7 +29,7 @@ export const authOptions: NextAuthOptions = {
         session.accessToken = token.accessToken as string;
         return session;
       },
-      async redirect({ url, baseUrl }) {
+      async redirect({ baseUrl }) {
         return baseUrl + "/dashboard";
       }
     }
