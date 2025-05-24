@@ -48,7 +48,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       },
       reminders: {
         useDefault: false,
-        overrides: parsedData.reminders?.map((reminder: any) => ({
+        overrides: parsedData.reminders?.map((reminder) => ({
           method: reminder.method,
           minutes: reminder.minutes,
         })),
