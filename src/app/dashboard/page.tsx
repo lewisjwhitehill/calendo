@@ -12,5 +12,5 @@ export default async function DashboardPage() {
     return <p>Access Denied. Please sign in.</p>;
   }
 
-  return <ClientDashboard initialSession={session} />;
+  return <ClientDashboard />;
 }
