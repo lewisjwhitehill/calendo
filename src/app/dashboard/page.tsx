@@ -2,7 +2,7 @@
 
 import ClientDashboard from "@/app/components/ClientDashboard";
 import { getServerSession } from "next-auth/next";
-import { authOptions } from "@/app/api/auth/[...nextauth]/route";
+import { authOptions } from "@/lib/authOptions";
 
 export default async function DashboardPage() {
   const session = await getServerSession(authOptions);
