@@ -1,8 +1,9 @@
 'use client';
 
 import { signIn, useSession } from "next-auth/react";
+import type { ReactElement } from "react";
 
-export default function Home() {
+export default function Home(): ReactElement | null {
   const { data: session, status } = useSession();
 
   if (status === "loading") {

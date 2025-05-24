@@ -3,6 +3,13 @@
 import { useSession } from "next-auth/react";
 import { useState } from "react";
 
+type ParsedEvent = {
+  summary: string;
+  start: string;
+  end: string;
+  reminders?: { method: string; minutes: number }[];
+};
+
 export default function ClientDashboard() {
   const { data: session, status } = useSession({ required: true });
   const [textInput, setTextInput] = useState("");
@@ -43,7 +50,7 @@ export default function ClientDashboard() {
     setTextInput(e.target.value);
   };
 
-  const createCalendarEvent = async (parsedData: any) => {
+  const createCalendarEvent = async (parsedData: ParsedEvent): Promise<void> => {
     const res = await fetch("/api/calendar/create", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -76,7 +83,7 @@ export default function ClientDashboard() {
       return;
     }
 
-    const parsedData = await response.json();
+    const parsedData = (await response.json()) as ParsedEvent;
     console.log("Parsed event:", parsedData);
 
     // Now send to Google Calendar

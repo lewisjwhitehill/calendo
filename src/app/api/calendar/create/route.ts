@@ -1,9 +1,10 @@
 import { google } from "googleapis";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
+import type { NextRequest } from "next/server";
 
-export async function POST(req: NextRequest) {
+export async function POST(req: NextRequest): Promise<NextResponse> {
   //Check if the user is logged in
   const session = await getServerSession(authOptions);
 
@@ -17,7 +18,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: "Missing Google access token." }, { status: 401 });
   }
   // Read the event details the user typed
-  const parsedData = await req.json(); // <-- Correct way in App Router
+  const parsedData: {
+    summary: string;
+    start: string;
+    end: string;
+    reminders?: { method: string; minutes: number }[];
+  } = await req.json();
 
   // Create the google API client and give the user's access token
   const oauth2Client = new google.auth.OAuth2();
