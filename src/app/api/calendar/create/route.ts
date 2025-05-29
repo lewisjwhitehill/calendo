@@ -7,6 +7,7 @@ import type { NextRequest } from "next/server";
 export async function POST(req: NextRequest): Promise<NextResponse> {
   //Check if the user is logged in
   const session = await getServerSession(authOptions);
+     console.log("session in create route →", session);
 
   if (!session) {
     return NextResponse.json({ error: "Not authenticated." }, { status: 401 });
