@@ -10,10 +10,8 @@ export async function POST(req: NextRequest) {
   try {
     const { text } = await req.json();  // Extract text from request body
 
-    // Get today's date in YYYY-MM-DD format
-    const today = new Date().toISOString().split("T")[0]; // e.g., "2025-04-26"
-
-    console.log("HELLO HELLO HELLO");
+    // Get YYYY-MM-DD in Pacific Time
+    const today = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Los_Angeles' }); 
 
     const response = await openai.chat.completions.create({
       model: "gpt-3.5-turbo",

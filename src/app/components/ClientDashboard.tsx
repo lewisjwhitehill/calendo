@@ -84,7 +84,6 @@ export default function ClientDashboard() {
     }
 
     const parsedData = (await response.json()) as ParsedEvent;
-    console.log("Parsed event:", parsedData);
 
     // Now send to Google Calendar
     await createCalendarEvent(parsedData);
