@@ -70,6 +70,7 @@ export default function ClientDashboard() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     console.log("Submitting event:", textInput);
+    console.log("Session data:", session);
     if (!textInput) return;
 
     const response = await fetch("/api/parseEvent", {

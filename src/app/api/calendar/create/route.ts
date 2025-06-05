@@ -7,7 +7,7 @@ import type { NextRequest } from "next/server";
 export async function POST(req: NextRequest): Promise<NextResponse> {
   //Check if the user is logged in
   const session = await getServerSession(authOptions);
-     console.log("session in create route →", session);
+  console.log("create-route session →", session);
 
   if (!session) {
     return NextResponse.json({ error: "Not authenticated." }, { status: 401 });
@@ -18,6 +18,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   if (!accessToken) {
     return NextResponse.json({ error: "Missing Google access token." }, { status: 401 });
   }
+
   // Read the event details the user typed
   const parsedData: {
     summary: string;
@@ -28,6 +29,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
   // Create the google API client and give the user's access token
   const oauth2Client = new google.auth.OAuth2();
+  console.log("accessToken in create route →", accessToken);
   oauth2Client.setCredentials({
     access_token: accessToken,
   });
