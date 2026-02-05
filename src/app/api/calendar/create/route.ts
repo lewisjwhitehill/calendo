@@ -7,8 +7,6 @@ import type { NextRequest } from "next/server";
 export async function POST(req: NextRequest): Promise<NextResponse> {
   //Check if the user is logged in
   const session = await getServerSession(authOptions);
-  console.log("create-route session →", session);
-
   if (!session) {
     return NextResponse.json({ error: "Not authenticated." }, { status: 401 });
   }
@@ -25,11 +23,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     start: string;
     end: string;
     reminders?: { method: string; minutes: number }[];
+    timeZone?: string;
   } = await req.json();
 
   // Create the google API client and give the user's access token
   const oauth2Client = new google.auth.OAuth2();
-  console.log("accessToken in create route →", accessToken);
   oauth2Client.setCredentials({
     access_token: accessToken,
   });
@@ -43,11 +41,11 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
       summary: parsedData.summary,
       start: {
         dateTime: parsedData.start,
-        timeZone: "America/Los_Angeles",
+        timeZone: parsedData.timeZone ?? "UTC",
       },
       end: {
         dateTime: parsedData.end,
-        timeZone: "America/Los_Angeles",
+        timeZone: parsedData.timeZone ?? "UTC",
       },
       reminders: {
         useDefault: false,
@@ -65,7 +63,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
 
     return NextResponse.json({ success: true, eventLink: result.data.htmlLink });
   } catch (error) {
-    console.error("Error inserting event:", error);
+    console.error("Error inserting event");
     return NextResponse.json({ error: "Failed to create event" }, { status: 500 });
   }
 }

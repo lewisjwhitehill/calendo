@@ -34,7 +34,7 @@ export const authOptions: NextAuthOptions = {
           (account.expires_at ?? Math.floor(Date.now() / 1000) + 3600) * 1000;
       }
       else{
-        console.log("No account found in JWT callback, using existing token", token);
+        // no-op: keep existing token
       }
 
       // ── AUTO‑REFRESH ──────────────────────────────
@@ -58,7 +58,7 @@ export const authOptions: NextAuthOptions = {
           const data = await res.json();
           // If the response is not OK, log the error and return the token with an error
           if (!res.ok) {
-            console.error("Google refresh failed", data);
+            console.error("Google refresh failed");
             token.error = data.error ?? "RefreshFailed";
               // Safeguard: wipe the dead tokens so your API knows it has to re-login
               delete token.accessToken;
@@ -69,14 +69,13 @@ export const authOptions: NextAuthOptions = {
           token.accessToken = data.access_token;
           token.expiresAt   = Date.now() + data.expires_in * 1000;
         } catch (err) {
-          console.error("Failed to refresh access token", err);
+          console.error("Failed to refresh access token");
           token.error = "RefreshAccessTokenError";
         }
       }
       else{
-        console.log("No refresh needed, token is still valid");
+        // no-op: token still valid
       }
-      console.log("JWT callback", { account, token });
       return token;
     },
     async session({ session, token }) {
