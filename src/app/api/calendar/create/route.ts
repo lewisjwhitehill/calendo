@@ -62,7 +62,7 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     });
 
     return NextResponse.json({ success: true, eventLink: result.data.htmlLink });
-  } catch (error) {
+  } catch {
     console.error("Error inserting event");
     return NextResponse.json({ error: "Failed to create event" }, { status: 500 });
   }

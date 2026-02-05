@@ -61,7 +61,7 @@ Only return valid, parsable JSON.
         { status: 500 }
       );
     }
-  } catch (error) {
+  } catch {
     console.error("Failed to parse event");
     return NextResponse.json({ error: "Failed to parse event" }, { status: 500 });
   }

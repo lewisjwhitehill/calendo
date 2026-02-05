@@ -68,7 +68,7 @@ export const authOptions: NextAuthOptions = {
           }
           token.accessToken = data.access_token;
           token.expiresAt   = Date.now() + data.expires_in * 1000;
-        } catch (err) {
+        } catch {
           console.error("Failed to refresh access token");
           token.error = "RefreshAccessTokenError";
         }
