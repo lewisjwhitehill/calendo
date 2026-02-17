@@ -1,5 +1,6 @@
 import { NextAuthOptions } from "next-auth";
 import GoogleProvider from "next-auth/providers/google";
+import { prisma } from "@/lib/db/prisma";
 
 export const authOptions: NextAuthOptions = {
   session: { strategy: "jwt" },
@@ -18,7 +19,7 @@ export const authOptions: NextAuthOptions = {
     }),
   ],
   callbacks: {
-    async jwt({ token, account }) {
+    async jwt({ token, account, profile }) {
       if (account) {
         // Save the new access token every sign‑in
         token.accessToken = account.access_token;
@@ -29,12 +30,50 @@ export const authOptions: NextAuthOptions = {
           token.refreshToken = account.refresh_token;
         }
 
-        // account.expires_at is in seconds; fall back to 1 hour if missing
+        // account.expires_at is in seconds; fall back to 1 hour if missing
         token.expiresAt =
           (account.expires_at ?? Math.floor(Date.now() / 1000) + 3600) * 1000;
-      }
-      else{
-        // no-op: keep existing token
+
+        // ── UPSERT user in the database ──────────────────
+        // Runs on every sign-in; creates the user row if it doesn't exist yet,
+        // and updates name/image if the Google profile changed.
+        if (token.email) {
+          try {
+            const dbUser = await prisma.user.upsert({
+              where: { email: token.email },
+              update: {
+                name: token.name ?? profile?.name,
+                image: token.picture as string | undefined,
+                googleId: account.providerAccountId,
+              },
+              create: {
+                email: token.email,
+                name: token.name ?? profile?.name,
+                image: token.picture as string | undefined,
+                googleId: account.providerAccountId,
+              },
+              include: { subscription: true },
+            });
+
+            token.userId = dbUser.id;
+
+            // Ensure the user has a subscription row (default: free plan)
+            if (!dbUser.subscription) {
+              await prisma.subscription.create({
+                data: {
+                  userId: dbUser.id,
+                  plan: "free",
+                  status: "active",
+                },
+              });
+              token.plan = "free";
+            } else {
+              token.plan = dbUser.subscription.plan;
+            }
+          } catch (err) {
+            console.error("Failed to upsert user in database:", err);
+          }
+        }
       }
 
       // ── AUTO‑REFRESH ──────────────────────────────
@@ -48,10 +87,10 @@ export const authOptions: NextAuthOptions = {
             method: "POST",
             headers: { "Content-Type": "application/x-www-form-urlencoded" },
             body: new URLSearchParams({
-              client_id:     process.env.GOOGLE_CLIENT_ID!,
+              client_id: process.env.GOOGLE_CLIENT_ID!,
               client_secret: process.env.GOOGLE_CLIENT_SECRET!,
               refresh_token: token.refreshToken!,
-              grant_type:    "refresh_token",
+              grant_type: "refresh_token",
             }),
           });
           // receive the response
@@ -60,26 +99,26 @@ export const authOptions: NextAuthOptions = {
           if (!res.ok) {
             console.error("Google refresh failed");
             token.error = data.error ?? "RefreshFailed";
-              // Safeguard: wipe the dead tokens so your API knows it has to re-login
-              delete token.accessToken;
-              delete token.refreshToken;
-              delete token.expiresAt;
+            // Safeguard: wipe the dead tokens so your API knows it has to re-login
+            delete token.accessToken;
+            delete token.refreshToken;
+            delete token.expiresAt;
             return token;
           }
           token.accessToken = data.access_token;
-          token.expiresAt   = Date.now() + data.expires_in * 1000;
+          token.expiresAt = Date.now() + data.expires_in * 1000;
         } catch {
           console.error("Failed to refresh access token");
           token.error = "RefreshAccessTokenError";
         }
       }
-      else{
-        // no-op: token still valid
-      }
+
       return token;
     },
     async session({ session, token }) {
       session.accessToken = token.accessToken as string;
+      session.userId = token.userId as string;
+      session.plan = token.plan as string;
       return session;
     },
     async redirect({ baseUrl }) {

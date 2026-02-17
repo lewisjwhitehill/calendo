@@ -1,0 +1,82 @@
+// Prisma schema for Calendo
+// Docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client"
+  output   = "../lib/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── User ────────────────────────────────────────────────────────
+// Created automatically on first Google OAuth sign-in via NextAuth.
+model User {
+  id        String   @id @default(cuid())
+  email     String   @unique
+  name      String?
+  googleId  String?  @unique
+  image     String?
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  subscription Subscription?
+  apiKeys      ApiKey[]
+  usageLogs    UsageLog[]
+
+  @@map("users")
+}
+
+// ─── Subscription ────────────────────────────────────────────────
+// Tracks Stripe subscription state. Every user gets a row (plan = "free"
+// until they upgrade).
+model Subscription {
+  id                   String    @id @default(cuid())
+  userId               String    @unique @map("user_id")
+  stripeCustomerId     String?   @unique @map("stripe_customer_id")
+  stripeSubscriptionId String?   @unique @map("stripe_subscription_id")
+  status               String    @default("active") // active | canceled | past_due
+  plan                 String    @default("free") // free | pro
+  currentPeriodEnd     DateTime? @map("current_period_end")
+  createdAt            DateTime  @default(now()) @map("created_at")
+  updatedAt            DateTime  @updatedAt @map("updated_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("subscriptions")
+}
+
+// ─── UsageLog ────────────────────────────────────────────────────
+// One row per user per calendar day (UTC). `count` is incremented each
+// time an event is created.
+model UsageLog {
+  id        String   @id @default(cuid())
+  userId    String   @map("user_id")
+  date      DateTime @db.Date // calendar day (no time component)
+  count     Int      @default(1)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date])
+  @@index([userId, date])
+  @@map("usage_logs")
+}
+
+// ─── ApiKey ──────────────────────────────────────────────────────
+// Hashed API keys for iOS / external clients.
+model ApiKey {
+  id        String    @id @default(cuid())
+  userId    String    @map("user_id")
+  keyHash   String    @unique @map("key_hash")
+  name      String? // user-friendly label, e.g. "Lewis's iPhone"
+  lastUsed  DateTime? @map("last_used")
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([keyHash])
+  @@map("api_keys")
+}

@@ -7,8 +7,10 @@ import "next-auth/jwt";
 declare module "next-auth" {
   interface Session {
     accessToken?: string;
-    expiresAt?: number;   // optional, but handy
+    expiresAt?: number; // optional, but handy
     error?: string;
+    userId?: string; // Calendo database user ID
+    plan?: string; // "free" | "pro"
   }
   interface User {
     accessToken?: string;
@@ -22,5 +24,7 @@ declare module "next-auth/jwt" {
     refreshToken?: string;
     expiresAt?: number;
     error?: string;
+    userId?: string; // Calendo database user ID
+    plan?: string; // "free" | "pro"
   }
 }
