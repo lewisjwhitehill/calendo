@@ -1,6 +1,8 @@
 import { google } from "googleapis";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/authOptions";
+import { consumeUsageIfAvailable } from "@/lib/usage/consumeUsageIfAvailable";
+import { rollbackConsumedUsage } from "@/lib/usage/rollbackConsumedUsage";
 import { NextResponse } from "next/server";
 import type { NextRequest } from "next/server";
 
@@ -10,6 +12,12 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
   if (!session) {
     return NextResponse.json({ error: "Not authenticated." }, { status: 401 });
   }
+  if (!session.userId) {
+    return NextResponse.json(
+      { error: "Session is missing user id. Please sign out and sign in again." },
+      { status: 401 }
+    );
+  }
   // Get the user’s Google access token
   const accessToken = session.accessToken;
   // Make sure the access token is available
@@ -17,14 +25,33 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     return NextResponse.json({ error: "Missing Google access token." }, { status: 401 });
   }
 
-  // Read the event details the user typed
-  const parsedData: {
+  // Parse body before reserving usage so invalid JSON does not consume a slot.
+  let parsedData: {
     summary: string;
     start: string;
     end: string;
     reminders?: { method: string; minutes: number }[];
     timeZone?: string;
-  } = await req.json();
+  };
+  try {
+    parsedData = await req.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
+  }
+
+  const usage = await consumeUsageIfAvailable(session.userId);
+  if (!usage.allowed) {
+    return NextResponse.json(
+      {
+        error: "Daily event limit reached.",
+        used: usage.used,
+        limit: usage.limit,
+        remaining: usage.remaining,
+        plan: usage.plan,
+      },
+      { status: 429 }
+    );
+  }
 
   // Create the google API client and give the user's access token
   const oauth2Client = new google.auth.OAuth2();
@@ -57,13 +84,21 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
     };
 
     const result = await calendar.events.insert({
-        calendarId: "primary",
-        requestBody: event,
+      calendarId: "primary",
+      requestBody: event,
     });
 
     return NextResponse.json({ success: true, eventLink: result.data.htmlLink });
-  } catch {
-    console.error("Error inserting event");
+  } catch (err) {
+    console.error("Error inserting event", err);
+    try {
+      await rollbackConsumedUsage(session.userId);
+    } catch (rollbackErr) {
+      console.error(
+        "Failed to rollback usage after calendar error — user may need manual adjustment",
+        rollbackErr
+      );
+    }
     return NextResponse.json({ error: "Failed to create event" }, { status: 500 });
   }
 }
