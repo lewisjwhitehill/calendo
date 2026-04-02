@@ -42,6 +42,19 @@ const TIME_PATTERN =
 const END_TIME_PATTERN =
   /(?:to|until|-|–|—)\s*(?:(?<eHour>\d{1,2})(?::(?<eMinute>\d{2}))?\s*(?<eAmpm>am|pm)?|(?<eNamed>noon|midnight))/i;
 
+const REMINDER_VALUE_PATTERN = "(?:\\d+|a|an|one|two|three|four|five|six|seven|eight|nine|ten|eleven|twelve)";
+const REMINDER_UNIT_PATTERN = "(?:minutes?|mins?|hours?|hrs?|hr|days?)";
+const REMINDER_COMMAND_PATTERN =
+  "(?:remind(?:\\s+me)?|alert(?:\\s+me)?|set\\s+(?:a\\s+)?reminder)";
+const REMINDER_PATTERN = new RegExp(
+  `\\b${REMINDER_COMMAND_PATTERN}\\b[\\s,:-]*(?<value>${REMINDER_VALUE_PATTERN})\\s*(?<unit>${REMINDER_UNIT_PATTERN})\\s+before\\b`,
+  "i"
+);
+const REMINDER_CLAUSE_PATTERN = new RegExp(
+  `(?:\\s*,?\\s*(?:or|and)?\\s*)?\\b${REMINDER_COMMAND_PATTERN}\\b[\\s,:-]*${REMINDER_VALUE_PATTERN}\\s*${REMINDER_UNIT_PATTERN}\\s+before\\b`,
+  "gi"
+);
+
 // ─── Time parsing ────────────────────────────────────────────────
 
 function parseTimeMatch(
@@ -73,12 +86,53 @@ function parseTimeMatch(
   return { hours: h, minutes: m };
 }
 
+function parseReminderMinutes(text: string): number | null {
+  const match = text.match(REMINDER_PATTERN);
+  if (!match?.groups) return null;
+
+  const rawValue = match.groups.value.toLowerCase();
+  const rawUnit = match.groups.unit.toLowerCase();
+
+  const wordToNumber: Record<string, number> = {
+    a: 1,
+    an: 1,
+    one: 1,
+    two: 2,
+    three: 3,
+    four: 4,
+    five: 5,
+    six: 6,
+    seven: 7,
+    eight: 8,
+    nine: 9,
+    ten: 10,
+    eleven: 11,
+    twelve: 12,
+  };
+
+  const quantity = /^\d+$/.test(rawValue)
+    ? parseInt(rawValue, 10)
+    : wordToNumber[rawValue];
+  if (!quantity || quantity < 1) return null;
+
+  if (rawUnit.startsWith("min")) return quantity;
+  if (rawUnit.startsWith("h")) return quantity * 60;
+  if (rawUnit.startsWith("day")) return quantity * 24 * 60;
+  return null;
+}
+
+function stripReminderClauses(text: string): string {
+  return text
+    .replace(REMINDER_CLAUSE_PATTERN, " ")
+    .replace(/\s{2,}/g, " ")
+    .trim();
+}
+
 // ─── Date resolution ─────────────────────────────────────────────
 
 function resolveDate(
   text: string,
-  today: Date,
-  timeZone: string
+  today: Date
 ): Date | null {
   // Relative days
   const relMatch = text.match(RELATIVE_DAY);
@@ -214,13 +268,15 @@ export function regexParse(
   const todayStr = now.toLocaleDateString("en-CA", { timeZone });
   const [y, m, d] = todayStr.split("-").map(Number);
   const today = new Date(y, m - 1, d);
+  const reminderMinutes = parseReminderMinutes(text) ?? 30;
+  const textWithoutReminders = stripReminderClauses(text);
 
   // ── 1. Find the date (optional — defaults to today) ───────────
-  const date = resolveDate(text, today, timeZone) ?? today;
+  const date = resolveDate(textWithoutReminders, today) ?? today;
 
   // Strip absolute dates from text so TIME_PATTERN doesn't match
   // the month digit in "4/15" as a bare hour.
-  const textForTime = text.replace(ABSOLUTE_DATE, " ");
+  const textForTime = textWithoutReminders.replace(ABSOLUTE_DATE, " ");
 
   // ── 2. Find a time (required for regex path) ──────────────────
   const timeMatch = textForTime.match(TIME_PATTERN);
@@ -273,7 +329,7 @@ export function regexParse(
   );
 
   // ── 5. Extract summary ────────────────────────────────────────
-  const summary = extractSummary(text);
+  const summary = extractSummary(textWithoutReminders);
 
   return {
     success: true,
@@ -281,7 +337,7 @@ export function regexParse(
       summary,
       start: startIso,
       end: endIso,
-      reminders: [{ method: "popup", minutes: 30 }],
+      reminders: [{ method: "popup", minutes: reminderMinutes }],
     },
   };
 }

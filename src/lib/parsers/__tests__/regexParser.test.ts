@@ -75,6 +75,21 @@ describe("regexParser - happy paths", () => {
     expect(event.reminders).toEqual([{ method: "popup", minutes: 30 }]);
   });
 
+  it("parses word-based reminder like 'remind me one hour before'", () => {
+    const event = expectSuccess(
+      "Doctor appointment tomorrow at 2pm remind me one hour before"
+    );
+    expect(event.summary).toBe("Doctor appointment");
+    expect(event.reminders).toEqual([{ method: "popup", minutes: 60 }]);
+  });
+
+  it("parses compact reminder like 'alert me 1day before'", () => {
+    const event = expectSuccess("Rent due 4/15 at 9am, alert me 1day before");
+    expect(event.summary).toBe("Rent due");
+    expect(event.start).toContain("2026-04-15T09:00:00");
+    expect(event.reminders).toEqual([{ method: "popup", minutes: 1440 }]);
+  });
+
   it("parses 'tmrw' abbreviation", () => {
     const event = expectSuccess("Haircut tmrw at 10am");
     expect(event.start).toContain("2026-04-02T10:00:00");

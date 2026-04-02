@@ -10,13 +10,29 @@ type ParsedEvent = {
   reminders?: { method: string; minutes: number }[];
 };
 
-export default function ClientDashboard() {
+type BillingSummary = {
+  plan: "free" | "pro";
+  status: string;
+  used: number;
+  limit: number;
+  remaining: number;
+  hasBilling: boolean;
+  currentPeriodEnd: string | null;
+};
+
+type ClientDashboardProps = {
+  billing: BillingSummary;
+};
+
+export default function ClientDashboard({ billing }: ClientDashboardProps) {
   const { data: session, status } = useSession({ required: true });
   const [textInput, setTextInput] = useState("");
   // Holds the link to the newly‑created Google Calendar event (if any)
   const [eventLink, setEventLink] = useState<string | null>(null);
   const [parsedEvent, setParsedEvent] = useState<ParsedEvent | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isBillingLoading, setIsBillingLoading] = useState(false);
+  const [billingError, setBillingError] = useState<string | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [userTimeZone] = useState(() => {
     try {
@@ -60,6 +76,26 @@ export default function ClientDashboard() {
 
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setTextInput(e.target.value);
+  };
+
+  const openBillingRoute = async (route: "/api/stripe/checkout" | "/api/stripe/portal") => {
+    if (isBillingLoading) return;
+    setIsBillingLoading(true);
+    setBillingError(null);
+
+    try {
+      const res = await fetch(route, { method: "POST" });
+      const data = (await res.json()) as { url?: string; error?: string };
+      if (!res.ok || !data.url) {
+        setBillingError(data.error ?? "Unable to start billing flow.");
+        setIsBillingLoading(false);
+        return;
+      }
+      window.location.href = data.url;
+    } catch {
+      setBillingError("Unable to start billing flow.");
+      setIsBillingLoading(false);
+    }
   };
 
   const createCalendarEvent = async (
@@ -141,6 +177,17 @@ export default function ClientDashboard() {
     return `${start} - ${end}`;
   };
 
+  const formatPlan = (plan: "free" | "pro"): string => {
+    return plan === "pro" ? "Pro" : "Free";
+  };
+
+  const statusLabel =
+    billing.status === "active"
+      ? "Active"
+      : billing.status === "past_due"
+        ? "Past Due"
+        : "Canceled";
+
   if (eventLink && parsedEvent) {
     return (
       <div className="flex items-center justify-center min-h-screen p-8 sm:p-20 font-[family-name:var(--font-geist-sans)]">
@@ -197,6 +244,51 @@ export default function ClientDashboard() {
     <div className="flex flex-col items-center justify-start min-h-screen p-8 pt-64 pb-20 gap-8 sm:p-20 font-[family-name:var(--font-geist-sans)]">
       <h1 className="text-4xl font-bold">Welcome, {session.user?.name}!</h1>
       <p>Type something below to create a calendar event:</p>
+
+      <section className="w-full max-w-md rounded-xl border border-orange-200 bg-white p-4 shadow-sm">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold text-gray-900">Subscription</h2>
+          <span className="text-sm font-medium text-gray-700">
+            {formatPlan(billing.plan)} ({statusLabel})
+          </span>
+        </div>
+        <p className="mt-2 text-sm text-gray-700">
+          Usage today: {billing.used}/{billing.limit} events ({billing.remaining} remaining)
+        </p>
+        {billing.plan === "free" ? (
+          <p className="mt-1 text-sm text-orange-700">
+            Upgrade to Pro for up to 50 events per day.
+          </p>
+        ) : (
+          <p className="mt-1 text-sm text-green-700">
+            Pro plan enabled with up to 50 events per day.
+          </p>
+        )}
+        <div className="mt-4 flex flex-col gap-2">
+          {billing.plan === "free" ? (
+            <button
+              type="button"
+              onClick={() => void openBillingRoute("/api/stripe/checkout")}
+              disabled={isBillingLoading}
+              className="w-full rounded bg-purple-600 px-4 py-2 text-white hover:bg-purple-700 disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              {isBillingLoading ? "Loading..." : "Upgrade to Pro"}
+            </button>
+          ) : null}
+          {billing.hasBilling ? (
+            <button
+              type="button"
+              onClick={() => void openBillingRoute("/api/stripe/portal")}
+              disabled={isBillingLoading}
+              className="w-full rounded border border-gray-300 bg-white px-4 py-2 text-gray-800 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-70"
+            >
+              {isBillingLoading ? "Loading..." : "Manage Billing"}
+            </button>
+          ) : null}
+          {billingError ? <p className="text-sm text-red-600">{billingError}</p> : null}
+        </div>
+      </section>
+
       <div className="mt-12 w-full max-w-md">
         <form onSubmit={handleSubmit} className="flex flex-col items-center gap-4">
           {isSubmitting ? (
