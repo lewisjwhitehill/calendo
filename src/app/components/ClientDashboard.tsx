@@ -26,6 +26,7 @@ type ClientDashboardProps = {
 
 export default function ClientDashboard({ billing }: ClientDashboardProps) {
   const { data: session, status } = useSession({ required: true });
+  const [billingState, setBillingState] = useState(billing);
   const [textInput, setTextInput] = useState("");
   // Holds the link to the newly‑created Google Calendar event (if any)
   const [eventLink, setEventLink] = useState<string | null>(null);
@@ -149,6 +150,11 @@ export default function ClientDashboard({ billing }: ClientDashboardProps) {
     }
 
     setEventLink(link);
+    setBillingState((prev) => {
+      const used = prev.used + 1;
+      const remaining = Math.max(0, prev.limit - used);
+      return { ...prev, used, remaining };
+    });
     setTextInput("");
     setIsSubmitting(false);
   };
@@ -181,10 +187,23 @@ export default function ClientDashboard({ billing }: ClientDashboardProps) {
     return plan === "pro" ? "Pro" : "Free";
   };
 
+  const formatDateOnly = (isoDate: string): string => {
+    return new Intl.DateTimeFormat("en-US", {
+      timeZone: userTimeZone,
+      month: "short",
+      day: "numeric",
+      year: "numeric",
+    }).format(new Date(isoDate));
+  };
+
   const statusLabel =
-    billing.status === "active"
+    billingState.status === "active"
       ? "Active"
-      : billing.status === "past_due"
+      : billingState.status === "canceling"
+        ? billingState.currentPeriodEnd
+          ? `Ending on ${formatDateOnly(billingState.currentPeriodEnd)}`
+          : "Ending at period end"
+      : billingState.status === "past_due"
         ? "Past Due"
         : "Canceled";
 
@@ -249,23 +268,30 @@ export default function ClientDashboard({ billing }: ClientDashboardProps) {
         <div className="flex items-center justify-between">
           <h2 className="text-lg font-semibold text-gray-900">Subscription</h2>
           <span className="text-sm font-medium text-gray-700">
-            {formatPlan(billing.plan)} ({statusLabel})
+            {formatPlan(billingState.plan)} ({statusLabel})
           </span>
         </div>
         <p className="mt-2 text-sm text-gray-700">
-          Usage today: {billing.used}/{billing.limit} events ({billing.remaining} remaining)
+          Usage today: {billingState.used}/{billingState.limit} events ({billingState.remaining} remaining)
         </p>
-        {billing.plan === "free" ? (
+        {billingState.plan === "free" ? (
           <p className="mt-1 text-sm text-orange-700">
             Upgrade to Pro for up to 50 events per day.
           </p>
         ) : (
-          <p className="mt-1 text-sm text-green-700">
-            Pro plan enabled with up to 50 events per day.
-          </p>
+          <>
+            <p className="mt-1 text-sm text-green-700">
+              Pro plan enabled with up to 50 events per day.
+            </p>
+            {billingState.status === "canceling" && billingState.currentPeriodEnd ? (
+              <p className="text-sm text-amber-700">
+                Your subscription will end on {formatDateOnly(billingState.currentPeriodEnd)}.
+              </p>
+            ) : null}
+          </>
         )}
         <div className="mt-4 flex flex-col gap-2">
-          {billing.plan === "free" ? (
+          {billingState.plan === "free" ? (
             <button
               type="button"
               onClick={() => void openBillingRoute("/api/stripe/checkout")}
@@ -275,7 +301,7 @@ export default function ClientDashboard({ billing }: ClientDashboardProps) {
               {isBillingLoading ? "Loading..." : "Upgrade to Pro"}
             </button>
           ) : null}
-          {billing.hasBilling ? (
+          {billingState.hasBilling ? (
             <button
               type="button"
               onClick={() => void openBillingRoute("/api/stripe/portal")}
