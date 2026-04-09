@@ -21,6 +21,10 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async jwt({ token, account, profile }) {
       if (account) {
+        // Fresh sign-in — clear any previous error state so a re-sign-in
+        // after a revoked/expired token starts from a clean slate.
+        delete token.error;
+
         // Save the new access token every sign‑in
         token.accessToken = account.access_token;
 
@@ -119,6 +123,9 @@ export const authOptions: NextAuthOptions = {
       session.accessToken = token.accessToken as string;
       session.userId = token.userId as string;
       session.plan = token.plan as string;
+      if (token.error) {
+        session.error = token.error;
+      }
       return session;
     },
     async redirect({ baseUrl }) {

@@ -1,7 +1,7 @@
 "use client";
 
-import { useSession } from "next-auth/react";
-import { useState } from "react";
+import { signOut, useSession } from "next-auth/react";
+import { useEffect, useState } from "react";
 
 type ParsedEvent = {
   summary: string;
@@ -43,7 +43,12 @@ export default function ClientDashboard({ billing }: ClientDashboardProps) {
     }
   });
 
-  // Show a friendly loader while NextAuth fetches the session
+  useEffect(() => {
+    if (session?.error) {
+      signOut({ callbackUrl: "/" });
+    }
+  }, [session?.error]);
+
   if (status === "loading") {
     return (
       <div className="flex items-center justify-center min-h-screen">

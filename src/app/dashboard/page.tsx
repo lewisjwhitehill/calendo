@@ -5,13 +5,13 @@ import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/lib/authOptions";
 import { prisma } from "@/lib/db/prisma";
 import { checkLimit } from "@/lib/usage/checkLimit";
+import { redirect } from "next/navigation";
 
 export default async function DashboardPage() {
   const session = await getServerSession(authOptions);
 
   if (!session?.userId) {
-    // You might want to redirect or show an error message
-    return <p>Access Denied. Please sign in.</p>;
+    redirect("/api/auth/signin");
   }
 
   const [subscription, usage] = await Promise.all([
