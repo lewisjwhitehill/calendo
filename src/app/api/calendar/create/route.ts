@@ -99,6 +99,33 @@ export async function POST(req: NextRequest): Promise<NextResponse> {
         rollbackErr
       );
     }
-    return NextResponse.json({ error: "Failed to create event" }, { status: 500 });
+
+    const googleStatus = (err as { code?: number })?.code;
+
+    if (googleStatus === 401) {
+      return NextResponse.json(
+        { error: "Google Calendar access has expired or been revoked. Please sign out and sign back in to reconnect your account." },
+        { status: 401 }
+      );
+    }
+
+    if (googleStatus === 403) {
+      return NextResponse.json(
+        { error: "Calendo doesn't have permission to access your Google Calendar. Please sign out, sign back in, and make sure you grant calendar access." },
+        { status: 403 }
+      );
+    }
+
+    if (googleStatus === 404) {
+      return NextResponse.json(
+        { error: "Google Calendar could not be found for your account. Make sure Google Calendar is enabled on your Google account." },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json(
+      { error: "Something went wrong creating your event. Please try again." },
+      { status: 500 }
+    );
   }
 }

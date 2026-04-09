@@ -102,7 +102,7 @@ export default function ClientDashboard({ billing }: ClientDashboardProps) {
   const createCalendarEvent = async (
     parsedData: ParsedEvent,
     timeZone: string
-  ): Promise<string | null> => {
+  ): Promise<{ eventLink: string } | { error: string }> => {
     const res = await fetch("/api/calendar/create", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -110,11 +110,10 @@ export default function ClientDashboard({ billing }: ClientDashboardProps) {
     });
 
     const result = await res.json();
-    if (res.ok) {
-      return result.eventLink ?? null;
-    } else {
-      return null;
+    if (res.ok && result.eventLink) {
+      return { eventLink: result.eventLink };
     }
+    return { error: result.error ?? "Something went wrong creating your event. Please try again." };
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -142,14 +141,14 @@ export default function ClientDashboard({ billing }: ClientDashboardProps) {
     setParsedEvent(parsedData);
 
     // Now send to Google Calendar
-    const link = await createCalendarEvent(parsedData, userTimeZone);
-    if (!link) {
-      setErrorMessage("Failed to create the event. Please try again.");
+    const calendarResult = await createCalendarEvent(parsedData, userTimeZone);
+    if ("error" in calendarResult) {
+      setErrorMessage(calendarResult.error);
       setIsSubmitting(false);
       return;
     }
 
-    setEventLink(link);
+    setEventLink(calendarResult.eventLink);
     setBillingState((prev) => {
       const used = prev.used + 1;
       const remaining = Math.max(0, prev.limit - used);
@@ -274,7 +273,11 @@ export default function ClientDashboard({ billing }: ClientDashboardProps) {
         <p className="mt-2 text-sm text-gray-700">
           Usage today: {billingState.used}/{billingState.limit} events ({billingState.remaining} remaining)
         </p>
-        {billingState.plan === "free" ? (
+        {billingState.status === "past_due" ? (
+          <p className="mt-1 text-sm text-red-700">
+            Your last payment failed. Please update your payment method to keep Pro access.
+          </p>
+        ) : billingState.plan === "free" ? (
           <p className="mt-1 text-sm text-orange-700">
             Upgrade to Pro for up to 50 events per day.
           </p>
@@ -291,7 +294,7 @@ export default function ClientDashboard({ billing }: ClientDashboardProps) {
           </>
         )}
         <div className="mt-4 flex flex-col gap-2">
-          {billingState.plan === "free" ? (
+          {billingState.plan === "free" && billingState.status !== "past_due" ? (
             <button
               type="button"
               onClick={() => void openBillingRoute("/api/stripe/checkout")}
@@ -306,9 +309,18 @@ export default function ClientDashboard({ billing }: ClientDashboardProps) {
               type="button"
               onClick={() => void openBillingRoute("/api/stripe/portal")}
               disabled={isBillingLoading}
-              className="w-full rounded border border-gray-300 bg-white px-4 py-2 text-gray-800 hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-70"
+              className={[
+                "w-full rounded px-4 py-2 disabled:cursor-not-allowed disabled:opacity-70",
+                billingState.status === "past_due"
+                  ? "bg-red-600 text-white hover:bg-red-700"
+                  : "border border-gray-300 bg-white text-gray-800 hover:bg-gray-50",
+              ].join(" ")}
             >
-              {isBillingLoading ? "Loading..." : "Manage Billing"}
+              {isBillingLoading
+                ? "Loading..."
+                : billingState.status === "past_due"
+                  ? "Update Payment Method"
+                  : "Manage Billing"}
             </button>
           ) : null}
           {billingError ? <p className="text-sm text-red-600">{billingError}</p> : null}
